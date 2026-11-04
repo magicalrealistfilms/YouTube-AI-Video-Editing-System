@@ -149,9 +149,9 @@ for L in plan_lines:
             r = align(tk, toks, a["start"], a["end"])
             if r:
                 found.append((n, a, r))
-        if not found:
-            found = [(None, {"start": tk.words[r[2]]["s"], "end": tk.words[r[3]]["e"], "flags": ["transcript search"]}, r)
-                     for r in search(tk, toks)]
+        if not any(r[1] >= 0.6 * len(toks) for _, _, r in found):     # no good logged reading: look in the transcript
+            found += [(None, {"start": tk.words[r[2]]["s"], "end": tk.words[r[3]]["e"], "flags": ["transcript search"]}, r)
+                      for r in search(tk, toks)]
         for n, a, r in found:
             _, m, first, last, pairs = r
             matched = {k for _, k in pairs}
@@ -475,3 +475,9 @@ print(f"{len(plan)} clips from {len(picks) - len(miss)} lines; missing {len(miss
       f"length {sum(c['dur'] for c in plan) / 60:.2f} min")
 for p in miss:
     print("  missing:", p["line"], p["text"][:80])
+    for c in p["best"]:
+        print(f"    closest: {c['take']} at {c['start']:.1f} s, {c['recall']:.0%} of the line's words")
+if miss:
+    for tk in takes.values():
+        said = list({w["r"]: w["w"] for w in tk.words}.values())          # one entry per transcript word
+        print(f"  {tk.key} transcript ({len(said)} words): {' '.join(said[:60]) or '(empty)'}" + (" ..." if len(said) > 60 else ""))
