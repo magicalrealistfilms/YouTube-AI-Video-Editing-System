@@ -1,20 +1,21 @@
 import importlib.util, json, os, socket, subprocess, sys, tempfile, time, unittest, urllib.request, urllib.error, wave
 from pathlib import Path
-import jsonschema
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from init_project import create
 from check_release import check
 from render_boards import validate
+from validate_examples import validate_examples
 
 class Contracts(unittest.TestCase):
     def test_public_tree(self):
         self.assertEqual(check(), [])
 
     def test_examples(self):
-        for name in ("take", "edit-plan", "cut-plan", "board-timeline"):
-            jsonschema.validate(json.loads((ROOT / f"examples/{name}.json").read_text()), json.loads((ROOT / f"schemas/{name}.schema.json").read_text()))
+        checked, errors = validate_examples()
+        self.assertEqual(errors, [])
+        self.assertTrue(checked)
 
     def test_scaffold_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as d:
