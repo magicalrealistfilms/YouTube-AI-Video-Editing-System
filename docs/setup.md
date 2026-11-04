@@ -38,6 +38,8 @@ Start the prompter with `--lan` to bind to the local network. The terminal print
 
 `python3 tools/check_release.py`
 
+`uv run tools/validate_examples.py` checks every file in `examples/` against its schema in `schemas/` and exits non-zero on any mismatch.
+
 Only the release copy is modified when preparing this repository. Existing installed applications and projects are independent.
 
 ## Optional GitHub Actions
