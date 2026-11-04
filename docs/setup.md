@@ -2,6 +2,12 @@
 
 Use Python 3.10+ and uv. Download them from https://www.python.org/downloads/ and https://docs.astral.sh/uv/getting-started/installation/. No installer in this repository copies private agent skills. Apps can run independently of a coding assistant.
 
+## Eyeline Home (no terminal)
+
+On macOS, double-click `Eyeline.command` in the repository folder. On another OS, run `uv run apps/home/home_server.py`. Either way, http://localhost:5300 opens with your projects (from `EYELINE_DATA/Projects` and the editor's recent list). From there you can open the teleprompter (in Chrome or Edge when installed), open a project's camera folder, run **Prepare for editing**, make and load a draft cut, and open the editor. The teleprompter and editor that Home starts stop when Home stops. Logs from them are in `~/.eyeline-edit/logs/`.
+
+The `.command` files run from their own folder, so you can move a Finder alias of one to the Dock or the desktop. If macOS refuses to open one, right-click it and choose Open once.
+
 ## Commands
 
 From the repository root, start the prompter with `python3 apps/teleprompter/server.py` (Windows: `py apps/teleprompter/server.py`). Open http://localhost:5317 in Chrome or Edge and allow microphone access. Browser recognition support varies; test a short recording before a long take. The prompter records mic audio; a camera is recorded separately.

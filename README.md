@@ -35,6 +35,14 @@ This is an early public release, not an unattended one-click editor. Cutting dec
 
 Install **Python 3.10+** and **uv** from their official installers. Chrome or Edge is recommended for browser speech recognition. No API key is required to launch either app.
 
+### Without the terminal (macOS)
+
+Double-click **`Eyeline.command`** in the repository folder. It opens **Eyeline Home** in your browser: one page that lists your projects, opens the teleprompter, finds each take's camera clip by sound, prepares takes for editing (transcript, sync, previews), makes a draft cut and opens the editor. Keep the Terminal window it opens running; close it to stop Eyeline. `Teleprompter.command` and `Editor.command` start just one app.
+
+Copy your camera clips into the project's `footage/` folder; Home shows the folder with **Open camera folder**. On another OS, run `uv run apps/home/home_server.py` and open http://localhost:5300.
+
+### From the terminal
+
 ```bash
 git clone https://github.com/sirioberati/YouTube-AI-Video-Editing-System.git
 cd YouTube-AI-Video-Editing-System
@@ -136,7 +144,8 @@ Editable source mapping is preserved. Redundant splits between continuous source
 ## Folder structure
 
 ```text
-apps/                  Teleprompter and Eyeline Edit source
+*.command              Double-click launchers (macOS): Eyeline Home, teleprompter, editor
+apps/                  Eyeline Home, teleprompter and Eyeline Edit source
 agents/                Generic role instructions and handoffs
 skills/                Placeholder SKILL.md files only
 config/                Workflow stages and example preferences
