@@ -167,6 +167,18 @@ def transcript_with_times(path):
     return "\n".join(lines)
 
 
+def brief_form():
+    """The brief template as a form to fill in a chat: no links to files the chat cannot see, no placeholder that
+    contradicts the exact timings, no request for extra documents."""
+    text = (TEMPLATES / "design-brief.md").read_text(encoding="utf-8")
+    text = re.sub(r"\n?See \[filled examples\][^\n]*\n", "\n", text)
+    text = text.replace("TIMING PENDING", "in on a word – out on a word")
+    text = text.replace("Include camera-only passages where no visual is needed. Do not guess times or facts.",
+                        "Include camera-only passages where no visual is needed. Take times from the word timings; do not guess facts.")
+    text = text.replace("Duplicate for each board. Keep a source ledger and asset list alongside the brief.", "Duplicate for each board.")
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
 def word_timings(path):
     """Every word with its start time, about 12 words per line: '2.92 France, 3.40 we 3.52 shall ...'."""
     ws = words(path)
@@ -174,6 +186,8 @@ def word_timings(path):
 
 
 BRIEF_RULES = """## Working rules for this brief
+
+These rules take precedence over the instructions above and over the form below wherever they differ.
 
 - Size: keep the brief in proportion to the video. Plan about one board per 10 to 20 seconds of narration where a
   visual genuinely helps, and leave the rest camera only. Write about 15 lines per board, plus the board map.
@@ -197,7 +211,7 @@ def prompt(path, kind):
     timed = transcript_with_times(path) or "(no final-cut transcript yet: export it from the editor first)"
     if kind == "brief":
         head = (TEMPLATES / "design" / "prompts" / "transcript-to-brief.md").read_text(encoding="utf-8")
-        form = (TEMPLATES / "design-brief.md").read_text(encoding="utf-8")
+        form = brief_form()
         words_block = word_timings(path) or "(none yet)"
         return (f"{head}\n\n{BRIEF_RULES}\n\n---\nVideo: {name}\nCanvas: {CANVAS[0]} × {CANVAS[1]}, {P.FPS_RATE} fps. "
                 f"Final-cut length: {cut_duration(path):.2f} s. Timestamps below are seconds on the final cut.\n\n"

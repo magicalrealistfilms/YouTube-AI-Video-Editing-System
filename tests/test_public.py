@@ -162,6 +162,9 @@ class AppHTTP(unittest.TestCase):
         self.assertIn("[   0.10 –    0.90] Hello world.", prompt)
         self.assertIn("0.10 Hello 0.50 world.", prompt)                       # exact word timings
         self.assertIn("Do not write TIMING PENDING", prompt)
+        self.assertIn("take precedence", prompt)
+        self.assertNotIn("TIMING PENDING |", prompt)                           # the form's placeholder is gone
+        self.assertNotIn("](design/", prompt)                                  # no links a chat cannot open
         preview = self.url.rsplit(":", 1)[0] + ":" + str(int(self.url.rsplit(":", 1)[1]) + 1)
         with urllib.request.urlopen(f"{preview}/p/{info['pid']}/01-process.html", timeout=5) as r:
             self.assertEqual(r.status, 200)
