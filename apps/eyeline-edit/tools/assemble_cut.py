@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1])); sys.path.insert(0,
 import project as P
 
 FPS = P.FPS
-SR = 48000
+SR = P.SAMPLE_RATE
 BREATH = 20         # dB over room tone below which it is a breath or silence, not speech
 PAUSE = 0.18        # silence longer than this inside a reading is removed
 PAD = 0.014         # room left after the last sound (the export fades 12 ms)

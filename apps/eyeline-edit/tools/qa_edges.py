@@ -22,7 +22,7 @@ pad = np.zeros(int(0.35 * sr), np.float32)
 pos, out = 0, {}
 tmp = Path(tempfile.gettempdir()) / "eyeline-edge.wav"
 for c in plan:
-    n = c["frames"] * 2002
+    n = c["frames"] * P.SPF
     seg = x[pos:pos + n]; pos += n
     sf.write(tmp, np.concatenate([pad, seg, pad]), sr, subtype="PCM_16")
     r = mlx_whisper.transcribe(str(tmp), path_or_hf_repo="mlx-community/whisper-large-v3-turbo", language="en",

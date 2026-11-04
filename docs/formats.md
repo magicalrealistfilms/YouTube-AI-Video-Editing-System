@@ -18,6 +18,6 @@ Times are seconds unless marked otherwise. Recording times and final-cut times a
 | final cut transcript.json | Words and chapter timing from transcribing exported audio. |
 | timeline.json | Board scenes in approved final-cut seconds. `file` is relative to this JSON. |
 
-`cutIn < cutOut`; intervals must stay within their source take. Keep complete original source files for handles. Adjacent intervals with matching source ends are continuous; overlapping source intervals require investigation. The editor currently normalizes to 24000/1001 fps. No fields promise exact phonetic boundaries.
+`cutIn < cutOut`; intervals must stay within their source take. Keep complete original source files for handles. Adjacent intervals with matching source ends are continuous; overlapping source intervals require investigation. The editor normalizes to 25 fps (`FPS_RATE` in `apps/eyeline-edit/project.py`). No fields promise exact phonetic boundaries.
 
 Examples are synthetic and deliberately small. See schemas/ for contracts and examples/ for data. The prompter's `words` are browser script matches; they are not the same as the Whisper TSV or final-cut word export.

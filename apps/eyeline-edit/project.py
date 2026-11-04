@@ -19,12 +19,22 @@ machine that is wrong on another.
       messages/NNNN-*.md        notes between recording and edit
 """
 import hashlib, json, os, platform, re, shutil, subprocess, sys, tempfile, time
+from fractions import Fraction
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
-FPS = 24000 / 1001
+# The project frame rate: the cut, proxies, export and frame counts all use it. Change it here only.
+# Plans store frame counts and frame-aligned times, so a plan made at another rate must be re-snapped.
+FPS_RATE = "25"                     # as ffmpeg writes it, e.g. "25" or "24000/1001"
+_rate = Fraction(FPS_RATE)
+FPS = float(_rate)
+SAMPLE_RATE = 48000
+assert (SAMPLE_RATE / _rate).denominator == 1, f"{FPS_RATE} fps needs a whole number of {SAMPLE_RATE} Hz samples per frame"
+SPF = int(SAMPLE_RATE / _rate)      # audio samples per video frame: 1920 at 25 fps
+VIDEO_TIMESCALE = _rate.numerator * (1000 if _rate.denominator == 1 else 1)   # 25000 at 25 fps
+GOP = round(2 * FPS)                # keyframe every two seconds
 HOME = Path(os.environ.get("EYELINE_EDIT_HOME", Path.home() / ".eyeline-edit")).expanduser()
 HOME.mkdir(parents=True, exist_ok=True)
 CONFIG = HOME / "config.json"

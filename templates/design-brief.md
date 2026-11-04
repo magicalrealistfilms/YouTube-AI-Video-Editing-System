@@ -4,7 +4,7 @@ Status: DRAFT / REVIEWED / APPROVED (select one). Approval date and reviewer: TO
 Approved final WAV, transcript, and word-timing paths: TODO.
 Audience and their starting knowledge: TODO.
 One-sentence takeaway: TODO.
-Canvas and frame rate: TODO (starter defaults: 1920 × 1080, 24000/1001).
+Canvas and frame rate: TODO (starter defaults: 1920 × 1080, 25 fps).
 Palette / system fonts / minimum text size: TODO.
 Camera safe area: TODO (starter default: x=1280, y=584, width=576, height=432).
 Assets and redistribution permissions: TODO.
