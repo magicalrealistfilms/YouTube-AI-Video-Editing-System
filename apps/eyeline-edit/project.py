@@ -136,6 +136,20 @@ def save_config(cfg):
 
 
 # ---------- the project ----------
+def identity(path):
+    """A project's display name and its id on this computer (keys its cache and local settings)."""
+    meta = read_json(Path(path) / "project.json", {})
+    name = meta.get("name") or Path(path).name
+    return name, hashlib.sha1(f"{name}|{meta.get('created', '')}".encode()).hexdigest()[:12]
+
+
+def renders_dir_for(path):
+    """Where exports of this project go on this computer. Reads only; Project.renders_dir creates it."""
+    name, pid = identity(path)
+    d = config()["projects"].get(pid, {}).get("rendersDir")
+    return Path(d) if d else Path.home() / ("Videos" if os.name == "nt" else "Movies") / "Eyeline Edit" / name
+
+
 class Project:
     def __init__(self, path):
         self.path = Path(path).expanduser().resolve()
@@ -145,9 +159,7 @@ class Project:
         self.edit.mkdir(exist_ok=True)
         (self.edit / "history").mkdir(exist_ok=True)
         (self.path / "messages").mkdir(exist_ok=True)
-        meta = read_json(self.path / "project.json", {})
-        self.name = meta.get("name") or self.path.name
-        self.id = hashlib.sha1(f"{self.name}|{meta.get('created', '')}".encode()).hexdigest()[:12]
+        self.name, self.id = identity(self.path)
         self.cache = HOME / "cache" / self.id
         self.cache.mkdir(parents=True, exist_ok=True)
         self.takes = {}                                   # take04 -> folder
@@ -168,9 +180,9 @@ class Project:
         cfg = config(); cfg["projects"][self.id] = data; save_config(cfg)
 
     def renders_dir(self):
-        d = self.local().get("rendersDir") or str(Path.home() / ("Videos" if os.name == "nt" else "Movies") / "Eyeline Edit" / self.name)
-        Path(d).mkdir(parents=True, exist_ok=True)
-        return Path(d)
+        d = renders_dir_for(self.path)
+        d.mkdir(parents=True, exist_ok=True)
+        return d
 
     # ---- camera files (relinking) ----
     def clip_path(self, name):
