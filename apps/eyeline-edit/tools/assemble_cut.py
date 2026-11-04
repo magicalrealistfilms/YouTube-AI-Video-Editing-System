@@ -23,6 +23,7 @@ BREATH = 20         # dB over room tone below which it is a breath or silence, n
 PAUSE = 0.18        # silence longer than this inside a reading is removed
 PAD = 0.014         # room left after the last sound (the export fades 12 ms)
 PAD_IN = 0.030      # room left before the first sound: onsets are detected a few ms late, plosives start soft
+PARTIAL = 8         # a reading of at least this many of a line's words, in order, is used when no fuller one exists
 FILLERS = {"um", "uh", "er", "erm", "ah", "hmm", "mm", "uhm", "umm", "uhh"}
 REDO = re.compile(r"\b(let me (re ?do|redo|start|try|say)|one more time|start (that|this) again|scratch that|"
                   r"hold on|sorry|again|redo|take two|from the top|wait)\b", re.I)
@@ -126,7 +127,7 @@ def search(tk, toks):
         seg = [k for k in range(j, min(len(W), j + int(n * 2.2) + 15)) if W[k]["n"] not in FILLERS]
         sm = SequenceMatcher(None, toks, [W[k]["n"] for k in seg], autojunk=False)
         pairs = [(b.a + q, seg[b.b + q]) for b in sm.get_matching_blocks() for q in range(b.size)]
-        if len(pairs) < max(2, 0.3 * n):
+        if len(pairs) < max(2, min(0.3 * n, PARTIAL)):
             continue
         m = len(pairs); first, last = pairs[0][1], pairs[-1][1]
         found.append((m - 0.12 * (last - first + 1 - m), m, first, last, pairs))
@@ -149,7 +150,7 @@ for L in plan_lines:
             r = align(tk, toks, a["start"], a["end"])
             if r:
                 found.append((n, a, r))
-        if not any(r[1] >= 0.6 * len(toks) for _, _, r in found):     # no good logged reading: look in the transcript
+        if not any(r[1] >= 0.9 * len(toks) for _, _, r in found):     # no complete logged reading: look in the transcript
             found += [(None, {"start": tk.words[r[2]]["s"], "end": tk.words[r[3]]["e"], "flags": ["transcript search"]}, r)
                       for r in search(tk, toks)]
         for n, a, r in found:
@@ -372,9 +373,16 @@ for d in (json.loads(keep_file.read_text()) if keep_file and keep_file.exists() 
 
 # linking words between two lines read one after the other in the same take ("and", "so", "it changes")
 # stay with the first line, so the speech flows the way it was said
+def usable(cs):
+    """Good readings of a line; else the best loose one; else the best partial one (a take that read only part of a
+    long line, e.g. a whole paragraph the teleprompter treats as one sentence)."""
+    return ([c for c in cs if c["recall"] >= 0.6] or [c for c in cs if c["recall"] >= 0.3][:1]
+            or [c for c in cs if len(c["matched"]) >= PARTIAL][:1])
+
+
 chosen = {}
 for L in plan_lines:
-    ok = [c for c in cands.get(L["line"], []) if c["recall"] >= 0.6] or [c for c in cands.get(L["line"], []) if c["recall"] >= 0.3][:1]
+    ok = usable(cands.get(L["line"], []))
     if ok:
         chosen[L["line"]] = ok[0]
 for L in plan_lines:
@@ -389,7 +397,7 @@ for L in plan_lines:
 plan, picks, flags = [], [], []
 for L in plan_lines:
     cs = cands.get(L["line"], [])
-    ok = [c for c in cs if c["recall"] >= 0.6] or [c for c in cs if c["recall"] >= 0.3][:1]
+    ok = usable(cs)
     if not ok:
         picks.append({"line": L["line"], "text": L["text"], "missing": True, "candidates": len(cs),
                       "best": [{k: c[k] for k in ("take", "start", "score", "recall", "extra")} for c in cs[:2]]})
@@ -400,9 +408,9 @@ for L in plan_lines:
     for cl in clips_for(takes[best["take"]], best, L):
         cl["picks"] = [L["line"]]
         if best["recall"] < 0.6:
-            cl["reviewNote"] = f"loose reading of the script line ({best['recall']:.0%} of its words), the only usable one"
+            cl["reviewNote"] = f"covers only {best['recall']:.0%} of the script line's words (a partial or loose reading), the best one found"
         if "transcript search" in best["flags"]:
-            cl["reviewNote"] = "; ".join(filter(None, [cl.get("reviewNote"), "found in the transcript (the teleprompter logged no attempt here); check it is the reading you want"]))
+            cl["reviewNote"] = "; ".join(filter(None, [cl.get("reviewNote"), "found by searching the transcript, not from a teleprompter attempt; check it is the reading you want"]))
         cl["reason"] = (f"best of {len(ok)} readings (score {best['score']:.0f}"
                         + (f", next {ok[1]['score']:.0f} in {ok[1]['take']}" if len(ok) > 1 else "") + ")")
         plan.append(cl)
@@ -474,7 +482,7 @@ miss = [p for p in picks if p.get("missing")]
 print(f"{len(plan)} clips from {len(picks) - len(miss)} lines; missing {len(miss)}; "
       f"length {sum(c['dur'] for c in plan) / 60:.2f} min")
 for p in miss:
-    print("  missing:", p["line"], p["text"][:80])
+    print(f"  missing: line {p['line']} ({len(norm(p['text']))} words):", p["text"][:80] + ("…" if len(p["text"]) > 80 else ""))
     for c in p["best"]:
         print(f"    closest: {c['take']} at {c['start']:.1f} s, {c['recall']:.0%} of the line's words")
 if miss:
