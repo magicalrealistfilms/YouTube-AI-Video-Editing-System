@@ -154,15 +154,41 @@ def brief(path):
 
 
 def transcript_with_times(path):
-    """The final cut's words as timed lines (about one line per 12 words or pause), for prompts."""
+    """The final cut's words as timed phrases, for prompts: a line ends at a sentence end, a pause, a comma after a
+    few words, or after 14 words."""
     ws = words(path)
     lines, cur = [], []
     for i, (a, b, w) in enumerate(ws):
         cur.append((a, b, w))
         pause = i + 1 < len(ws) and ws[i + 1][0] - b > 0.6
-        if len(cur) >= 12 or pause or w.endswith((".", "?", "!")) or i + 1 == len(ws):
+        if (len(cur) >= 14 or pause or w.endswith((".", "?", "!")) or (w.endswith((",", ";", ":")) and len(cur) >= 4)
+                or i + 1 == len(ws)):
             lines.append(f"[{cur[0][0]:7.2f} – {cur[-1][1]:7.2f}] " + " ".join(x[2] for x in cur)); cur = []
     return "\n".join(lines)
+
+
+def word_timings(path):
+    """Every word with its start time, about 12 words per line: '2.92 France, 3.40 we 3.52 shall ...'."""
+    ws = words(path)
+    return "\n".join(" ".join(f"{a:.2f} {w}" for a, _, w in ws[i:i + 12]) for i in range(0, len(ws), 12))
+
+
+BRIEF_RULES = """## Working rules for this brief
+
+- Size: keep the brief in proportion to the video. Plan about one board per 10 to 20 seconds of narration where a
+  visual genuinely helps, and leave the rest camera only. Write about 15 lines per board, plus the board map.
+- Decide, do not ask: when a choice is missing (audience, palette, headline style, whether to cite a source), pick a
+  sensible default, state it in one line and move on. List at most three open questions, only for choices you cannot
+  reasonably default.
+- Boards support the voice, they do not repeat it: use short keywords, names, numbers or a simple diagram, each
+  appearing on the word that says it. Do not put whole spoken sentences on a board.
+- Timing: the word timings below are exact, in seconds on the final cut (each line of the transcript also starts and
+  ends on a word). Give every board an in and out on a specific word and quote its time. Do not write TIMING PENDING.
+- The narration as recorded is the wording to follow. Do not compare it with other versions of the text, and do not
+  research outside sources unless the narration makes a factual claim a board would show and that needs a citation.
+- Name board files NN-short-name.html in the order they appear (01-places.html, 02-...).
+- In the brief form, fill each field in a few words or write "n/a"; keep the review section as a checklist without
+  commentary. No editorial essays."""
 
 
 def prompt(path, kind):
@@ -172,14 +198,18 @@ def prompt(path, kind):
     if kind == "brief":
         head = (TEMPLATES / "design" / "prompts" / "transcript-to-brief.md").read_text(encoding="utf-8")
         form = (TEMPLATES / "design-brief.md").read_text(encoding="utf-8")
-        return (f"{head}\n\n---\nVideo: {name}\nCanvas: {CANVAS[0]} × {CANVAS[1]}, {P.FPS_RATE} fps. "
+        words_block = word_timings(path) or "(none yet)"
+        return (f"{head}\n\n{BRIEF_RULES}\n\n---\nVideo: {name}\nCanvas: {CANVAS[0]} × {CANVAS[1]}, {P.FPS_RATE} fps. "
                 f"Final-cut length: {cut_duration(path):.2f} s. Timestamps below are seconds on the final cut.\n\n"
-                f"## Approved final-cut transcript\n\n{timed}\n\n## Brief form to fill in\n\n{form}")
+                f"## Approved final-cut transcript\n\n{timed}\n\n## Word timings (start of each word, seconds)\n\n{words_block}"
+                f"\n\n## Brief form to fill in\n\n{form}")
     head = (TEMPLATES / "claude-design-prompt.md").read_text(encoding="utf-8")
     b = folders(path)[2]
     brief_text = b.read_text(encoding="utf-8") if b.exists() else "(no design brief yet)"
     return (f"{head}\n\n---\nVideo: {name}\nCanvas: {CANVAS[0]} × {CANVAS[1]}. Each board is one self-contained HTML file "
-            f"exposing window.seek(seconds).\n\n## Design brief\n\n{brief_text}\n\n## Approved final-cut transcript\n\n{timed}")
+            f"exposing window.seek(seconds), named as in the brief. Where the brief's decisions at the top answer an open "
+            f"question, follow the decision.\n\n## Design brief\n\n{brief_text}\n\n## Approved final-cut transcript "
+            f"(each line starts and ends on a word; seconds on the final cut)\n\n{timed}")
 
 
 def info(path):

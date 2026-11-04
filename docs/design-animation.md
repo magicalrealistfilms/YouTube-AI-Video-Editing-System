@@ -7,7 +7,7 @@ Design begins after the cut is approved. The transcript of the approved WAV dete
 Steps 6 to 9 of a project in Eyeline Home cover this stage without the terminal:
 
 - **Export and approve** lists the final-cut files the editor exported (video, WAV, transcript and word timings, captions).
-- **Design boards** copies two ready-to-paste prompts: one for Claude to draft the design brief from the final-cut transcript with its timings, one for Claude Design that includes the brief. It opens the project's design brief (created from `templates/design-brief.md`), the board library and the boards folder, and can add a starter board. Each board in the folder has a preview with a scrubber.
+- **Design boards** copies two ready-to-paste prompts: one for Claude to draft the design brief from the final-cut transcript and its exact word timings (with rules that keep the brief in proportion to the video, settle routine choices with defaults, and put keywords on boards rather than whole spoken sentences), one for Claude Design that includes the brief. It opens the project's design brief (created from `templates/design-brief.md`), the board library and the boards folder, and can add a starter board. Each board in the folder has a preview with a scrubber.
 - **Animate** edits the board timeline: pick a board per scene and click words in the transcript to set start and end times. **Preview with narration** plays the boards in time with the exported WAV. **Render board track** renders the silent track with `tools/render_boards.py` (the first render installs a browser for rendering).
 - **Finish** lists the files for Resolve or Premiere.
 
