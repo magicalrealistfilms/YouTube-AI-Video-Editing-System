@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["numpy", "soundfile", "mlx-whisper; sys_platform == 'darwin' and platform_machine == 'arm64'", "faster-whisper; sys_platform != 'darwin' or platform_machine != 'arm64'"]
+# dependencies = ["numpy", "soundfile", "imageio-ffmpeg", "mlx-whisper; sys_platform == 'darwin' and platform_machine == 'arm64'", "faster-whisper; sys_platform != 'darwin' or platform_machine != 'arm64'"]
 # ///
 """Per-clip edge check: every clip of the QA audio transcribed on its own (padded with silence), and its
 first and last words compared with what the clip should say. Writes edit/qa-edges.json.

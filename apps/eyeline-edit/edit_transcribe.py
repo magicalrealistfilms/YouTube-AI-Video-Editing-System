@@ -20,6 +20,7 @@ where <name> is the WAV's name without ".wav" (e.g. "Example Video - final cut")
 Mac (Apple silicon): mlx-whisper. Windows and others: faster-whisper (GPU if there is one, else CPU).
 """
 import json, os, re, subprocess, sys, tempfile
+import soundfile as sf
 from pathlib import Path
 
 # Once the speech model is on this computer, never ask the internet again (a stalled update check hung the
@@ -47,7 +48,8 @@ print("transcribing (the first run downloads the speech model, about 1.5 GB)..."
 segments = []   # [{text, no_speech, words: [(start, end, word, prob)]}]
 try:
     import mlx_whisper
-    r = mlx_whisper.transcribe(str(tmp), path_or_hf_repo="mlx-community/whisper-large-v3-turbo", language="en",
+    audio, _ = sf.read(tmp, dtype="float32")    # already 16 kHz mono; an array keeps mlx-whisper from calling a system ffmpeg
+    r = mlx_whisper.transcribe(audio, path_or_hf_repo="mlx-community/whisper-large-v3-turbo", language="en",
                                word_timestamps=True, condition_on_previous_text=False, temperature=0.0)
     for s in r["segments"]:
         segments.append({"text": s["text"], "no_speech": s.get("no_speech_prob", 0),
