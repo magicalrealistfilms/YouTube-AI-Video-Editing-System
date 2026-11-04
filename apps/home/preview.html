@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board Preview</title>
+<style>
+:root { --bg: #141415; --panel: #1e1e20; --ink: #f2f2f3; --muted: #9a9aa0; --line: #2e2e31; --accent: #5b8ff0; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.bar b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+button { font: inherit; font-weight: 500; border-radius: 8px; padding: 6px 14px; border: 1px solid var(--accent); background: var(--accent); color: #0b0b0c; cursor: pointer; min-width: 84px; }
+input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.t { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.stage { margin: 16px auto; width: min(calc(100vw - 32px), calc((100vh - 110px) * 16 / 9)); aspect-ratio: 16 / 9; position: relative; overflow: hidden; background: #fff; border-radius: 6px; }
+iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; background: #fff; }
+.note { text-align: center; color: var(--muted); padding: 0 16px; }
+</style>
+</head>
+<body>
+<div class="bar"><b id="title">Preview</b><button id="play">▶ Play</button><input id="pos" type="range" min="0" step="0.01" value="0"><span class="t" id="time">0.00 s</span></div>
+<div class="stage" id="stage"><iframe id="board" title="Board"></iframe></div>
+<p class="note" id="note"></p>
+<script>
+const q = new URLSearchParams(location.search);
+const frame = document.getElementById("board"), pos = document.getElementById("pos"), playBtn = document.getElementById("play");
+let scenes = [], duration = 8, audio = null, playing = false, t = 0, clock = 0, current = null, ready = false;
+
+function fit() { frame.style.transform = `scale(${document.getElementById("stage").clientWidth / 1920})`; }
+addEventListener("resize", fit); fit();
+
+function show(time) {
+  t = Math.max(0, Math.min(duration, time));
+  pos.value = t; document.getElementById("time").textContent = `${t.toFixed(2)} / ${duration.toFixed(2)} s`;
+  const s = scenes.find(x => t >= x.start && t < x.end);
+  const url = s ? s.url : "about:blank";
+  if (url !== current) { current = url; ready = false; frame.src = url; return; }
+  if (s && ready) { try { frame.contentWindow.seek(t - s.start); } catch (e) {} }
+}
+frame.addEventListener("load", () => { ready = true; show(t); });
+
+function tick() {
+  if (!playing) return;
+  const now = audio ? audio.currentTime : (performance.now() - clock) / 1000;
+  if (now >= duration) { stop(); show(duration); return; }
+  show(now); requestAnimationFrame(tick);
+}
+function start() {
+  if (t >= duration - 0.01) t = 0;
+  playing = true; playBtn.textContent = "❚❚ Pause";
+  if (audio) { audio.currentTime = t; audio.play(); } else clock = performance.now() - t * 1000;
+  requestAnimationFrame(tick);
+}
+function stop() { playing = false; playBtn.textContent = "▶ Play"; if (audio) audio.pause(); }
+playBtn.onclick = () => playing ? stop() : start();
+pos.oninput = () => { const was = playing; stop(); show(+pos.value); if (was) start(); };
+addEventListener("keydown", e => { if (e.key === " ") { e.preventDefault(); playBtn.click(); } });
+
+(async () => {
+  if (q.get("pid")) {
+    const tl = await (await fetch(`/t/${encodeURIComponent(q.get("pid"))}/timeline.json`)).json();
+    scenes = tl.scenes; duration = tl.duration || 1;
+    document.getElementById("title").textContent = "Timeline preview";
+    if (tl.audio) audio = new Audio(tl.audio);
+    document.getElementById("note").textContent = (tl.audio ? "Plays with the narration (final-cut WAV). " : "No final-cut WAV exported yet, so this plays silently. ")
+      + "White means no board at that moment. This is a preview; the rendered track is the reference.";
+  } else {
+    const src = q.get("src") || "about:blank";
+    duration = +q.get("dur") || 8;
+    scenes = [{ url: src, start: 0, end: duration + 1 }];
+    document.getElementById("title").textContent = decodeURIComponent(src.split("/").pop());
+    document.getElementById("note").textContent = "Scrub or play to check the board's motion (its window.seek). Boards without motion look the same throughout.";
+  }
+  pos.max = duration; show(0);
+})();
+</script>
+</body>
+</html>

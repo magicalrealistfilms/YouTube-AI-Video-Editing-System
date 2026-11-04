@@ -3,7 +3,7 @@
 # dependencies = ["playwright", "imageio-ffmpeg"]
 # ///
 """Render trusted seekable HTML boards to a silent video. No production skills required."""
-import argparse, json, math, subprocess
+import argparse, json, math, os, subprocess
 from fractions import Fraction
 from pathlib import Path
 
@@ -38,7 +38,11 @@ def render(source, output):
             browser = pw.chromium.launch(channel="chromium", args=["--disable-gpu"])
             page = browser.new_page(viewport={"width":timeline["width"],"height":timeline["height"]}, device_scale_factor=1)
             current = object()
-            for frame in range(math.ceil(timeline["duration"] * fps)):
+            frames = math.ceil(timeline["duration"] * fps)
+            report = os.environ.get("EYELINE_PROGRESS") == "1"      # set by Eyeline Home
+            for frame in range(frames):
+                if report and frame % 25 == 0:
+                    print("@progress " + json.dumps({"done": frame, "total": frames, "step": f"Rendering frame {frame} of {frames}"}), flush=True)
                 at = frame / fps
                 scene = next((s for s in scenes if s["start"] <= at < s["end"]), None)
                 if scene is not current:

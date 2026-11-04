@@ -2,7 +2,7 @@
 
 Validated on macOS with Python 3.12:
 
-- Ten automated tests: public-tree exclusions, JSON examples, the 25 fps frame-rate constants and frame snapping, camera clip matching by sound, safe project creation, Eyeline Home project listing and write guards, board timeline overlap rejection, editor save conflicts/source validation/media ranges, and teleprompter project/static-file boundaries.
+- Eleven automated tests: public-tree exclusions, JSON examples, the 25 fps frame-rate constants and frame snapping, camera clip matching by sound, safe project creation, Eyeline Home project listing and write guards, Home's board timeline, prompts and preview path guard, board timeline overlap rejection, editor save conflicts/source validation/media ranges, and teleprompter project/static-file boundaries.
 - Python source compilation and JavaScript syntax checks for both apps.
 - Isolated Chromium editor test: synthetic project loaded and played with no page errors.
 - Synthetic six-second camera/audio source generated locally; its two-interval edit exported as a 4.00-second, 25 fps video (100 frames, 100 × 1920 audio samples).

@@ -52,14 +52,30 @@ pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; 
 .note { font-size: 13px; color: var(--muted); }
 .msg { padding: 10px 12px; border-radius: 9px; background: var(--soft); margin: 8px 0; font-size: 14px; }
 .msg.err { background: color-mix(in srgb, var(--bad) 14%, transparent); }
-ol.after { margin: 4px 0 0; padding-left: 20px; color: var(--muted); }
-ol.after li { margin: 3px 0; }
-ol.after b { color: var(--ink); font-weight: 600; }
 .empty { color: var(--muted); padding: 40px 0; }
 code { font-size: 13px; }
 .note code { word-break: break-all; }
 .tablewrap { overflow-x: auto; }
 td:first-child, td:nth-child(2) { white-space: nowrap; }
+.sub { margin: 14px 0 4px; font-weight: 600; font-size: 14px; }
+.sub span { color: var(--muted); font-weight: 400; }
+.files { list-style: none; padding: 0; margin: 4px 0 12px; }
+.files li { padding: 3px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.chip { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; background: var(--bg); color: var(--ink); text-decoration: none; }
+a.chip:hover { border-color: var(--muted); }
+select, input.num { font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+input.num { width: 92px; font-variant-numeric: tabular-nums; }
+input.num.on, select.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+td .x-row { border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 6px; }
+.words { max-height: 210px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; line-height: 2; background: var(--bg); }
+.wd { border: 0; background: none; color: var(--ink); font: inherit; font-size: 14px; padding: 1px 3px; border-radius: 4px; cursor: pointer; }
+.wd:hover { background: var(--soft); }
+.wd.in { color: var(--accent); }
+.wd.at { background: var(--accent); color: var(--accent-ink); }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; z-index: 5; padding: 16px; }
+.modal > div { background: var(--panel); border-radius: 14px; padding: 18px; width: min(760px, 100%); }
+.modal textarea { width: 100%; height: 50vh; font: 12px/1.4 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } aside { border-right: 0; border-bottom: 1px solid var(--line); } .content { padding: 20px 16px; } header { padding: 14px 16px; } }
 </style>
 </head>
@@ -76,6 +92,7 @@ td:first-child, td:nth-child(2) { white-space: nowrap; }
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let state = null, job = null, selected = null, notice = null, logOpen = false;
+let design = null, tl = [], tlFor = null, tlDirty = false, field = { row: 0, key: "start" }, tlMsg = null;
 try { selected = localStorage.getItem("eyeline-home-project"); } catch (e) {}
 
 async function post(url, body) {
@@ -92,6 +109,14 @@ async function refresh() {
     job = await (await fetch("/api/job")).json();
   } catch (e) { $("#view").innerHTML = `<p class="msg err">Eyeline Home is not running. Start it again with Eyeline.command.</p>`; return; }
   if (!state.projects.find(p => p.path === selected)) selected = state.projects[0]?.path || null;
+  if (selected) {
+    try { design = await (await fetch(`/api/design?project=${encodeURIComponent(selected)}`)).json(); } catch (e) { design = null; }
+    if (design && !design.error && (tlFor !== selected || !tlDirty)) {
+      tl = (design.timeline?.scenes || []).map(x => ({ ...x })); tlFor = selected; tlDirty = false;
+    }
+  }
+  const a = document.activeElement;
+  if (a && $("#view").contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;   // do not interrupt typing
   render();
 }
 
@@ -177,27 +202,172 @@ function render() {
     <div class="row"><button class="b ${p.planClips ? "primary" : ""}" data-act="edit" ${prepared || p.planClips ? "" : "disabled"}>Open in editor</button></div>
   </div></div>
 
-  <div class="step"><div class="num">→</div><div class="body">
-    <h3>After the cut</h3>
-    <ol class="after">
-      <li><b>Approve and export</b> in the editor: the final video, its WAV and the transcript.</li>
-      <li><b>Design</b> the boards from the approved transcript (Claude Design or your HTML tool).</li>
-      <li><b>Animate</b> the boards to the narration and render them (<code>tools/render_boards.py</code>).</li>
-      <li><b>Finish</b> in Resolve or Premiere: picture, approved WAV, board track, captions. Then publish.</li>
-    </ol>
-  </div></div>`;
+  ${designSteps(p, busy, mine, jobBox)}`;
 
   document.querySelectorAll("[data-act]").forEach(b => b.onclick = () => act(b.dataset.act, p, b));
+  wireTimeline();
   document.querySelectorAll("details").forEach(d => d.ontoggle = () => { logOpen = d.open; });
   document.querySelectorAll("pre").forEach(x => { x.scrollTop = x.scrollHeight; });
+}
+
+
+// ---------------- design & animate ----------------
+const base = f => f ? f.split("/").pop() : "";
+const sec = v => v == null || v === "" || isNaN(+v) ? "" : (+v).toFixed(2);
+
+function designSteps(p, busy, mine, jobBox) {
+  const d = design && !design.error ? design : null;
+  if (!d) return "";
+  const e = d.exports, words = d.words, haveWords = words.length > 0;
+  const exported = e.video && e.wav && e.words;
+  const fileRow = (ok, label, f) => `<li>${mark(ok)} ${label}${f ? ` <span class="note">${esc(base(f))}</span>` : ""}</li>`;
+  const sceneOf = t => tl.findIndex(x => +x.start <= t && t < +x.end);
+  const fieldLabel = `Scene ${field.row + 1} · ${field.key === "start" ? "start" : "end"}`;
+  const boardOpts = cur => `<option value="">Choose a board…</option>` + d.boards.map(b => `<option ${b === cur ? "selected" : ""}>${esc(b)}</option>`).join("")
+    + (cur && !d.boards.includes(cur) ? `<option selected>${esc(cur)} (missing)</option>` : "");
+  const preview = b => `${d.preview}/preview.html?src=${encodeURIComponent(`/p/${d.pid}/${b}`)}`;
+  return `
+  <div class="step"><div class="num ${exported ? "done" : ""}">6</div><div class="body">
+    <h3>Export and approve</h3>
+    <p>In the editor, click <b>Export 4K…</b>, then <b>Export video</b>, <b>Export audio only (WAV)</b> and <b>Export transcript</b>. Watch the video once from start to finish: that is your approval of the cut.</p>
+    <ul class="files">
+      ${fileRow(e.video, "Final video", e.video)}${fileRow(e.wav, "Narration WAV", e.wav)}
+      ${fileRow(e.words, "Transcript and word timings", e.words)}${fileRow(e.captions, "Captions", e.captions)}
+    </ul>
+    <div class="row"><button class="b ${p.planClips && !exported ? "primary" : ""}" data-act="edit" ${p.planClips ? "" : "disabled"}>Open in editor</button>
+      <button class="link" data-act="exports">Show exports folder</button></div>
+  </div></div>
+
+  <div class="step"><div class="num ${d.boards.length ? "done" : ""}">7</div><div class="body">
+    <h3>Design boards</h3>
+    <p>Boards are the graphics shown with your narration. Plan them in a design brief, make them in Claude Design (or your own HTML tool), and save each board's HTML file in the boards folder.</p>
+    ${!haveWords ? `<p class="note w">Export the transcript first (step 6): the prompts include it with its timings.</p>` : ""}
+    <div class="sub">1. Plan <span>— Claude drafts the brief from your transcript</span></div>
+    <div class="row"><button class="b" data-act="copy-brief">Copy brief prompt</button><button class="b" data-act="brief">${d.brief ? "Open design brief" : "Create design brief"}</button></div>
+    <p class="note">Paste the prompt into Claude, check its answer, and paste it into your design brief.</p>
+    <div class="sub">2. Make <span>— one HTML file per board</span></div>
+    <div class="row"><button class="b" data-act="copy-design">Copy design prompt</button><button class="b" data-act="library">Browse board library</button><button class="b" data-act="boards">Open boards folder</button></div>
+    <p class="note">The design prompt includes your brief. Paste it into Claude Design, attach any library boards you like, and save the boards it makes into the boards folder.</p>
+    <div class="row"><select id="starter">${d.starters.map(x => `<option>${esc(x)}</option>`).join("")}</select><button class="b" data-act="starter">Add starter board</button></div>
+    <div class="sub">Boards in this project <span>(${d.boards.length})</span></div>
+    ${d.boards.length ? `<div class="chips">${d.boards.map(b => `<a class="chip" href="${esc(preview(b))}" target="_blank" title="Preview">${esc(b)} ↗</a>`).join("")}</div>`
+      : `<p class="note">None yet. Boards appear here when their HTML files are in the boards folder.</p>`}
+  </div></div>
+
+  <div class="step"><div class="num ${e.boards ? "done" : ""}">8</div><div class="body">
+    <h3>Animate</h3>
+    <p>Place each board on the narration, then render the boards as a silent video track (${d.fps} fps, the cut's ${d.duration.toFixed(2)} s).</p>
+    ${!haveWords || !d.boards.length ? `<p class="note w">Needs the exported transcript (step 6) and at least one board (step 7).</p>` : `
+    <div class="tablewrap"><table id="tl"><tr><th>#</th><th>Board</th><th>Start (s)</th><th>End (s)</th><th></th></tr>
+      ${tl.map((x, i) => `<tr><td>${i + 1}</td><td><select data-row="${i}" data-key="board">${boardOpts(x.board)}</select></td>
+        <td><input class="num ${field.row === i && field.key === "start" ? "on" : ""}" data-row="${i}" data-key="start" inputmode="decimal" value="${sec(x.start)}"></td>
+        <td><input class="num ${field.row === i && field.key === "end" ? "on" : ""}" data-row="${i}" data-key="end" inputmode="decimal" value="${sec(x.end)}"></td>
+        <td><button class="x-row" data-del="${i}" title="Remove scene">×</button></td></tr>`).join("")}
+    </table></div>
+    <div class="row"><button class="b" data-act="tl-add">Add scene</button><button class="b" data-act="tl-spread">Spread boards evenly</button>
+      <button class="b ${tlDirty ? "primary" : ""}" data-act="tl-save">${tlDirty || !d.timeline ? "Save timeline" : "Saved"}</button>
+      <button class="b" data-act="tl-preview" ${tl.length ? "" : "disabled"}>Preview with narration</button></div>
+    ${tlMsg ? `<div class="msg ${tlMsg.err ? "err" : ""}">${esc(tlMsg.text)}</div>` : ""}
+    ${tl.length ? `<p class="note">Click a word to set <b>${fieldLabel}</b>; it then moves to the next field. Blue words are covered by a scene.</p>
+    <div class="words">${words.map((w, i) => `<button class="wd ${sceneOf(w[0]) >= 0 ? "in" : ""}" data-w="${i}" title="${w[0].toFixed(2)}–${w[1].toFixed(2)} s">${esc(w[2])}</button>`).join(" ")}</div>` : `<p class="note">Add a scene, or spread your boards evenly over the cut to start.</p>`}
+    <div class="row" style="margin-top:12px"><button class="b ${!e.boards && tl.length && !tlDirty ? "primary" : ""}" data-act="render-boards" ${busy || !tl.length ? "disabled" : ""}>Render board track</button>
+      ${e.boards ? `<span class="note">${mark(true)} ${esc(base(e.boards))}</span>` : ""}</div>
+    <p class="note">The first render installs a browser for rendering (about 150 MB).</p>
+    ${jobBox("boards")}`}
+  </div></div>
+
+  <div class="step"><div class="num">9</div><div class="body">
+    <h3>Finish</h3>
+    <p>Assemble the video in DaVinci Resolve, Premiere or another editor:</p>
+    <ul class="files">
+      ${fileRow(e.video, "Picture: the final cut", e.video)}
+      ${fileRow(e.wav, "Sound: the narration WAV as the only voice track (mute the video's own sound)", e.wav)}
+      ${fileRow(e.boards, "Graphics: the board track, with the camera placed in the brief's camera area", e.boards)}
+      ${fileRow(e.captions, "Captions: subtitles.srt, or upload it to YouTube with the video", e.captions)}
+    </ul>
+    <p class="note">Review the start, middle, end and every transition. Publish only when you are happy with it.</p>
+    <div class="row"><button class="b" data-act="exports">Show exports folder</button></div>
+  </div></div>`;
+}
+
+function wireTimeline() {
+  document.querySelectorAll("#tl [data-row]").forEach(el => {
+    const i = +el.dataset.row, k = el.dataset.key;
+    el.onfocus = () => { if (k !== "board") { field = { row: i, key: k }; markField(); } };
+    el.oninput = el.onchange = () => { tl[i][k] = k === "board" ? el.value.replace(/ \(missing\)$/, "") : el.value; tlDirty = true; tlMsg = null; markSave(); };
+  });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { tl.splice(+b.dataset.del, 1); tlDirty = true; field = { row: 0, key: "start" }; render(); });
+  document.querySelectorAll(".wd").forEach(b => b.onclick = () => {
+    const w = design.words[+b.dataset.w];
+    if (!tl[field.row]) return;
+    tl[field.row][field.key] = field.key === "start" ? w[0] : w[1];
+    tlDirty = true; tlMsg = null;
+    field = field.key === "start" ? { row: field.row, key: "end" } : { row: Math.min(field.row + 1, tl.length - 1), key: "start" };
+    const top = $(".words")?.scrollTop; render(); if ($(".words")) $(".words").scrollTop = top;
+  });
+}
+function markField() { document.querySelectorAll("#tl input.num").forEach(x => x.classList.toggle("on", +x.dataset.row === field.row && x.dataset.key === field.key)); }
+function markSave() { const b = document.querySelector('[data-act="tl-save"]'); if (b) { b.textContent = "Save timeline"; b.classList.add("primary"); } }
+
+function spread() {
+  const d = design, D = d.duration, ws = d.words;
+  const boards = tl.length && tl.every(x => x.board) ? tl.map(x => x.board) : d.boards;
+  const n = boards.length, snap = t => ws.length ? ws.reduce((b, w) => Math.abs(w[0] - t) < Math.abs(b - t) ? w[0] : b, ws[0][0]) : t;
+  const cuts = [0, ...Array.from({ length: n - 1 }, (_, i) => snap(D * (i + 1) / n)), D];
+  tl = boards.map((b, i) => ({ board: b, start: +cuts[i].toFixed(2), end: +cuts[i + 1].toFixed(2) })).filter(x => x.end > x.start);
+  tlDirty = true; tlMsg = null; field = { row: 0, key: "start" };
+}
+
+async function saveTimeline(p) {
+  const r = await post("/api/timeline", { project: p.path, scenes: tl.map(x => ({ board: x.board, start: x.start, end: x.end })) });
+  if (r.ok) { tlDirty = false; tlMsg = { text: `Timeline saved: ${r.data.scenes} scene${r.data.scenes === 1 ? "" : "s"}.` }; }
+  else tlMsg = { text: r.data.error || "The timeline could not be saved.", err: true };
+  return r.ok;
+}
+
+async function copyPrompt(p, kind) {
+  const url = `/api/prompt?project=${encodeURIComponent(p.path)}&kind=${kind}`;
+  const done = kind === "brief" ? "Brief prompt copied. Paste it into Claude, then put Claude's answer in your design brief."
+                                : "Design prompt copied. Paste it into Claude Design and save the boards it makes into the boards folder.";
+  try {
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {   // keeps the click's permission while the text loads
+      await navigator.clipboard.write([new ClipboardItem({ "text/plain": fetch(url).then(r => r.json()).then(x => new Blob([x.text], { type: "text/plain" })) })]);
+    } else {
+      await navigator.clipboard.writeText((await (await fetch(url)).json()).text);
+    }
+    notice = { text: done };
+  } catch (e) {
+    const text = (await (await fetch(url)).json()).text;
+    const m = document.createElement("div"); m.className = "modal";
+    m.innerHTML = `<div><p>Copying was blocked by the browser. Select all (⌘A) and copy (⌘C):</p><textarea readonly></textarea><div class="row" style="margin-top:10px"><button class="b primary">Close</button></div></div>`;
+    m.querySelector("textarea").value = text; document.body.append(m); m.querySelector("textarea").select();
+    m.querySelector("button").onclick = () => m.remove();
+  }
 }
 
 async function act(what, p, btn) {
   notice = null;
   if (what === "tele") return tele(btn);
+  if (what === "library") { window.open(`${design.preview}/library/`, "_blank"); return; }
+  if (what === "tl-add") { const last = tl[tl.length - 1]; tl.push({ board: "", start: last ? last.end : 0, end: "" }); tlDirty = true; field = { row: tl.length - 1, key: last ? "end" : "start" }; render(); return; }
+  if (what === "tl-spread") { if (tl.length && !confirm("Replace the scene times with evenly spread ones?")) return; spread(); render(); return; }
+  if (what === "tl-preview") {
+    const w = window.open("", "_blank");           // opened now, so the browser does not block it
+    if (tlDirty && !(await saveTimeline(p))) { w && w.close(); render(); return; }
+    if (w) w.location = `${design.preview}/preview.html?pid=${design.pid}`;
+    render(); return;
+  }
   btn.disabled = true;
   const say = (r, ok) => { notice = r.ok ? (ok ? { text: ok } : null) : { text: r.data.error || `Something went wrong (${r.status}).`, err: true }; };
-  if (what === "reveal" || what === "camera") say(await post("/api/reveal", { project: p.path, what: what === "camera" ? "camera" : "project" }));
+  if (["reveal", "camera", "exports", "boards"].includes(what)) say(await post("/api/reveal", { project: p.path, what: what === "reveal" ? "project" : what }));
+  if (what === "brief") say(await post("/api/brief", { project: p.path }), "The design brief is open in your text editor.");
+  if (what === "copy-brief" || what === "copy-design") await copyPrompt(p, what === "copy-brief" ? "brief" : "design");
+  if (what === "starter") { const r = await post("/api/starter", { project: p.path, name: $("#starter").value }); say(r, r.ok ? `Added ${r.data.board} to the boards folder. Edit its text in any editor, or ask Claude Design to restyle it.` : null); }
+  if (what === "tl-save") await saveTimeline(p);
+  if (what === "render-boards") {
+    if (tlDirty && !(await saveTimeline(p))) { btn.disabled = false; render(); return; }
+    say(await post("/api/render-boards", { project: p.path }));
+  }
   if (what === "prepare" || what === "redo") say(await post("/api/prepare", { project: p.path, redo: what === "redo" }));
   if (what === "draft") say(await post("/api/draft", { project: p.path }));
   if (what === "edit") { btn.textContent = "Opening…"; say(await post("/api/editor", { project: p.path })); }

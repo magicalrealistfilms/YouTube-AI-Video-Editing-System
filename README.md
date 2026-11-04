@@ -37,7 +37,7 @@ Install **Python 3.10+** and **uv** from their official installers. Chrome or Ed
 
 ### Without the terminal (macOS)
 
-Double-click **`Eyeline.command`** in the repository folder. It opens **Eyeline Home** in your browser: one page that lists your projects, opens the teleprompter, finds each take's camera clip by sound, prepares takes for editing (transcript, sync, previews), makes a draft cut and opens the editor. Keep the Terminal window it opens running; close it to stop Eyeline. `Teleprompter.command` and `Editor.command` start just one app.
+Double-click **`Eyeline.command`** in the repository folder. It opens **Eyeline Home** in your browser: one page that lists your projects, opens the teleprompter, finds each take's camera clip by sound, prepares takes for editing (transcript, sync, previews), makes a draft cut, opens the editor, and helps you design, time and render the boards. Keep the Terminal window it opens running; close it to stop Eyeline. `Teleprompter.command` and `Editor.command` start just one app.
 
 Copy your camera clips into the project's `footage/` folder; Home shows the folder with **Open camera folder**. On another OS, run `uv run apps/home/home_server.py` and open http://localhost:5300.
 

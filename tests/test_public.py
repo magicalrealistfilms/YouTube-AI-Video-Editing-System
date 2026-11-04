@@ -1,4 +1,4 @@
-import importlib.util, json, os, socket, subprocess, sys, tempfile, time, unittest, urllib.request, urllib.error, wave
+import importlib.util, json, os, socket, subprocess, sys, tempfile, time, unittest, urllib.parse, urllib.request, urllib.error, wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,12 +75,12 @@ class AppHTTP(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=5) as r: return r.status, dict(r.headers), r.read()
         except urllib.error.HTTPError as e: return e.code, dict(e.headers), e.read()
 
-    def start(self, app, project=None, args=()):
+    def start(self, app, project=None, args=(), env=None):
         self.temp = tempfile.TemporaryDirectory()
         self.folder = Path(self.temp.name)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0)); port = sock.getsockname()[1]
-        env = dict(os.environ, EYELINE_EDIT_HOME=str(self.folder / "config"), EYELINE_DATA=str(self.folder / "data"))
+        env = dict(os.environ, EYELINE_EDIT_HOME=str(self.folder / "config"), EYELINE_DATA=str(self.folder / "data"), **(env or {}))
         if project:
             project = create(self.folder / "Video") / "01-recording"
             take = project / "takes/Take 01 · synthetic"; take.mkdir()
@@ -136,6 +136,36 @@ class AppHTTP(unittest.TestCase):
         self.assertEqual(self.request("/api/state", headers={"Host": "example.invalid"})[0], 403)
         self.assertEqual(self.request("/api/prepare", {"project": str(self.folder)}, ok)[0], 404)                # not a listed project
         self.assertEqual(self.request("/api/use-draft", {"project": str(project)}, ok)[0], 409)                  # no draft yet
+
+    def test_home_design_and_timeline(self):
+        home = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(home, ignore_errors=True))
+        self.start("apps/home/home_server.py", args=["--no-browser"], env={"HOME": home})
+        project = self.folder / "data/Projects/Sample"; (project / "takes").mkdir(parents=True); (project / "edit").mkdir()
+        (project / "edit/plan.json").write_text(json.dumps([{"take": "take01", "cutIn": 0, "cutOut": 4, "dur": 4.0}]))
+        out = Path(home, "Movies", "Eyeline Edit", "Sample"); out.mkdir(parents=True)
+        (out / "Sample - final cut words.tsv").write_text("start\tend\tword\tframe_in\tframe_out\tconfidence\n0.10\t0.40\tHello\t2\t10\t0.9\n0.50\t0.90\tworld.\t12\t22\t0.9\n")
+        ok, key = {"X-Eyeline": "1"}, {"project": str(project)}
+        status, _, body = self.request("/api/design?project=" + urllib.parse.quote(str(project)))
+        info = json.loads(body)
+        self.assertEqual((status, info["duration"], len(info["words"]), info["boards"]), (200, 4.0, 2, []))
+        self.assertEqual(json.loads(self.request("/api/starter", dict(key, name="Process"), ok)[2])["board"], "01-process.html")
+        self.assertEqual(self.request("/api/starter", dict(key, name="../../etc"), ok)[0], 400)
+        scene = lambda a, b: {"board": "01-process.html", "start": a, "end": b}
+        self.assertEqual(self.request("/api/timeline", dict(key, scenes=[scene(0, 2), scene(1, 3)]), ok)[0], 400)   # overlap
+        self.assertEqual(self.request("/api/timeline", dict(key, scenes=[scene(0, 9)]), ok)[0], 400)               # past the cut
+        self.assertEqual(self.request("/api/timeline", dict(key, scenes=[dict(scene(0, 1), board="../project.json")]), ok)[0], 400)
+        self.assertEqual(self.request("/api/timeline", dict(key, scenes=[scene(0.5, 3)]), ok)[0], 200)
+        saved = json.loads((project / "animation/timeline.json").read_text())
+        self.assertEqual((saved["fps"], saved["duration"], saved["scenes"][0]["file"]), ("25", 4.0, "../boards/01-process.html"))
+        prompt = json.loads(self.request("/api/prompt?kind=brief&project=" + urllib.parse.quote(str(project)))[2])["text"]
+        self.assertIn("[   0.10 –    0.90] Hello world.", prompt)
+        preview = self.url.rsplit(":", 1)[0] + ":" + str(int(self.url.rsplit(":", 1)[1]) + 1)
+        with urllib.request.urlopen(f"{preview}/p/{info['pid']}/01-process.html", timeout=5) as r:
+            self.assertEqual(r.status, 200)
+        for bad in (f"/p/{info['pid']}/../edit/plan.json", f"/p/{info['pid']}/%2e%2e/edit/plan.json", "/library/../../README.md"):
+            with self.assertRaises(urllib.error.HTTPError):
+                urllib.request.urlopen(preview + bad, timeout=5)
 
     def test_teleprompter_project_and_static_boundary(self):
         self.start("apps/teleprompter/server.py")
