@@ -24,7 +24,7 @@ tmp = out.with_suffix(".part.mp4")
 enc = ["-c:v", "h264_videotoolbox", "-b:v", "2500k"] if sys.platform == "darwin" else ["-c:v", "libx264", "-preset", "veryfast", "-crf", "26"]
 pre = ["-ss", f"{b:.4f}"] if b >= 0 else ["-itsoffset", f"{-b:.4f}"]
 subprocess.run([P.ffmpeg(), "-v", "error", "-y", *pre, "-i", cam, "-i", str(wav),
-                "-map", "0:v:0", "-map", "1:a:0", "-vf", f"setpts=(PTS-STARTPTS)/{1 + a:.9f},fps=24000/1001,scale=960:540",
+                "-map", "0:v:0", "-map", "1:a:0", "-vf", f"setpts=(PTS-STARTPTS)/{1 + a:.9f},fps={P.FPS_RATE},scale=960:540",
                 *enc, "-c:a", "aac", "-b:a", "128k", "-ac", "1", "-t", f"{dur:.3f}", "-movflags", "+faststart", str(tmp)], check=True)
 tmp.replace(out)
 sp = proj / "edit" / "sprites" / key; sp.mkdir(parents=True, exist_ok=True)

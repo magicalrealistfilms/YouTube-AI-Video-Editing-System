@@ -24,7 +24,7 @@ def build(destination):
     sf.write(take / "audio.wav", x, 48000, subtype="PCM_16")
     P.write_json(take / "take.json", {"eyeline": 2, "take": {"number": 1, "duration": 6, "audio": "audio.wav", "sampleRate": 48000}, "attempts": [], "sentences": [], "roughCut": [{"start": .5, "end": 5.5}], "words": [], "health": {}})
     camera = root / "01-camera" / "demo-camera.mp4"
-    subprocess.run([P.ffmpeg(), "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=960x540:rate=24000/1001:duration=6", "-i", str(take / "audio.wav"), "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(camera)], check=True)
+    subprocess.run([P.ffmpeg(), "-v", "error", "-f", "lavfi", "-i", f"testsrc2=size=960x540:rate={P.FPS_RATE}:duration=6", "-i", str(take / "audio.wav"), "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(camera)], check=True)
     import shutil
     shutil.copyfile(camera, recording / "edit/proxies/take01.mp4")
     P.write_json(recording / "edit/footage.json", {"clips": [{"name": camera.name, "size": camera.stat().st_size, "duration": 6}]})

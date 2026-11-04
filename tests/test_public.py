@@ -3,10 +3,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "apps/eyeline-edit"))
 from init_project import create
 from check_release import check
 from render_boards import validate
 from validate_examples import validate_examples
+import project as P
 
 class Contracts(unittest.TestCase):
     def test_public_tree(self):
@@ -16,6 +18,23 @@ class Contracts(unittest.TestCase):
         checked, errors = validate_examples()
         self.assertEqual(errors, [])
         self.assertTrue(checked)
+
+    def test_frame_rate_is_25(self):
+        self.assertEqual((P.FPS_RATE, P.FPS, P.SPF, P.GOP), ("25", 25.0, 1920, 50))
+        self.assertEqual(P.SPF * 25, P.SAMPLE_RATE)
+        for path in ("config/preferences.example.json", "examples/board-timeline.json", "examples/design-starters-timeline.json"):
+            self.assertEqual(json.loads((ROOT / path).read_text())["fps"], P.FPS_RATE, path)
+
+    def test_normalize_snaps_to_25fps_frames(self):
+        plan = P.normalize([{"take": "take01", "cam": "demo.mp4", "cutIn": 0.51, "cutOut": 2.53, "camOffset": 0.013},
+                            {"take": "take01", "cam": "demo.mp4", "cutIn": 3.5, "cutOut": 5.5, "camOffset": 0, "padBefore": 0.1}], None)
+        for c in plan:
+            self.assertAlmostEqual(c["camStart"] * 25, round(c["camStart"] * 25), places=4)  # starts on a camera frame
+            self.assertAlmostEqual(c["cutOut"] - c["cutIn"], c["frames"] / 25, places=4)
+            self.assertEqual(c["dur"], round((c["frames"] + c["padFrames"]) / 25, 4))
+        self.assertEqual([c["frames"] for c in plan], [51, 50])  # 0.507-2.53 s rounds to 51 frames
+        self.assertEqual(plan[1]["padFrames"], 2)
+        self.assertAlmostEqual(plan[1]["outStart"], plan[0]["dur"], places=4)
 
     def test_scaffold_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as d:

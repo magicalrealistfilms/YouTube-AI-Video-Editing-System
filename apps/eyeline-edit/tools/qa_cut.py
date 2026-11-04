@@ -6,7 +6,7 @@
 #   "faster-whisper; sys_platform != 'darwin' or platform_machine != 'arm64'",
 # ]
 # ///
-"""QA for an Eyeline Edit cut. Rebuilds the cut's sound exactly as the export does (frames x 2002 samples per
+"""QA for an Eyeline Edit cut. Rebuilds the cut's sound exactly as the export does (frames x P.SPF samples per
 clip, 12 ms fades), re-transcribes every word of it, matches each heard word to the clip it should come from,
 and checks every join and edge on the waveform. Writes edit/qa-report.md and edit/qa.json; writes diagnostic flags to plan.qa-flags.json without editing the active cut.
 
@@ -24,7 +24,7 @@ if HUB.is_dir() and any(HUB.iterdir()):
     os.environ["HF_HUB_OFFLINE"] = "1"
 import project as P
 
-SR = 48000; SPF = 2002
+SR = P.SAMPLE_RATE; SPF = P.SPF
 FILLERS = {"um", "uh", "er", "erm", "ah", "hmm", "mm", "uhm", "umm", "uhh"}
 proj = Path(sys.argv[1]); E = proj / "edit"
 qa_wav = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(tempfile.gettempdir()) / "eyeline-qa.wav"

@@ -2,8 +2,8 @@
 # requires-python = ">=3.10"
 # dependencies = ["numpy", "soundfile", "imageio-ffmpeg"]
 # ///
-"""Export the cut: camera picture per clip, sound sample-exact per frame (48 kHz: 2002 samples per
-23.976 fps frame), one loudness pass, mux. Video pieces are cached on this machine, so a re-export after
+"""Export the cut: camera picture per clip, sound sample-exact per frame (48 kHz: P.SPF samples per
+frame, 1920 at 25 fps), one loudness pass, mux. Video pieces are cached on this machine, so a re-export after
 small edits only renders what changed.
 
     edit_render.py PROJECT PLAN.json OUT.mp4 [--audio-only]
@@ -22,7 +22,7 @@ AUDIO_ONLY = "--audio-only" in sys.argv
 FF = P.ffmpeg()
 SEG = proj.cache / "segments"; SEG.mkdir(exist_ok=True)
 COLOR = ["-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
-SR, SPF = 48000, 2002
+SR, SPF = P.SAMPLE_RATE, P.SPF
 
 clip_paths = {}
 def clip(name):
@@ -39,7 +39,7 @@ if not AUDIO_ONLY:
     enc_name, enc = P.video_encoder()
     print(f"encoder: {enc_name}", flush=True)
 def seg_key(c):
-    k = f"{c['cam']}|{c['camStart']:.4f}|{c['frames']}|{c.get('padFrames', 0)}|{'' if AUDIO_ONLY else enc_name}"
+    k = f"{c['cam']}|{c['camStart']:.4f}|{c['frames']}|{c.get('padFrames', 0)}|{'' if AUDIO_ONLY else enc_name}|{P.FPS_RATE}"
     return hashlib.sha1(k.encode()).hexdigest()[:14]
 for c in ([] if AUDIO_ONLY else plan):
     f = SEG / f"{seg_key(c)}.mp4"
@@ -49,13 +49,13 @@ for c in ([] if AUDIO_ONLY else plan):
            "-frames:v", str(c["frames"] + c.get("padFrames", 0)), "-an"]
     if c.get("padFrames"):
         cmd += ["-vf", f"tpad=start={c['padFrames']}:start_mode=clone"]
-    cmd += enc + ["-pix_fmt", "yuv420p", "-r", "24000/1001", "-video_track_timescale", "24000", "-g", "48"] + COLOR + [str(f) + ".tmp.mp4"]
+    cmd += enc + ["-pix_fmt", "yuv420p", "-r", P.FPS_RATE, "-video_track_timescale", str(P.VIDEO_TIMESCALE), "-g", str(P.GOP)] + COLOR + [str(f) + ".tmp.mp4"]
     subprocess.run(cmd, check=True)
     os.replace(str(f) + ".tmp.mp4", f)
     print(f"seg {c['id']}/{len(plan)}", flush=True)
 
 
-# 2) sound: exactly frames*2002 samples per clip, short fades at the cuts
+# 2) sound: exactly frames*SPF samples per clip, short fades at the cuts
 takes = {}
 def take_audio(t):
     if t not in takes:

@@ -125,7 +125,7 @@ for n, c in enumerate(cues, 1):
 P.write_atomic(f"{BASE} subtitles.srt", "\n".join(srt))
 
 P.write_json(f"{BASE} transcript.json", {
-    "source": WAV.name, "fps": "24000/1001", "timing": "seconds on the final cut",
+    "source": WAV.name, "fps": P.FPS_RATE, "timing": "seconds on the final cut",
     "words": [{"start": a, "end": b, "word": w, "confidence": p} for a, b, w, p in words],
     "chapters": [{"start": round(t, 3), "title": h} for t, h in chapters]})
 tmp.unlink(missing_ok=True)
