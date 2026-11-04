@@ -1,6 +1,6 @@
 # Cutting and quality limits
 
-The supplied assembler is experimental. It scores source readings and uses waveform heuristics; it can choose the wrong attempt, miss a filler, clip a consonant, or create redundant boundaries. It writes candidate outputs only. Do not treat its output, word coverage score, or ASR spelling as an approved cut.
+The supplied assembler is experimental. It scores source readings and uses waveform heuristics; it can choose the wrong attempt, miss a filler, clip a consonant, or create redundant boundaries. It writes candidate outputs only. It looks for each script line first where the teleprompter logged an attempt; if a take has none for that line (voice following lost the place, or the script changed after recording), it searches the take's transcript and marks the clip with a review note. Do not treat its output, word coverage score, or ASR spelling as an approved cut.
 
 ## Ingestion commands
 
