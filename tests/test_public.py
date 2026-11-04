@@ -9,6 +9,8 @@ from check_release import check
 from render_boards import validate
 from validate_examples import validate_examples
 import project as P
+import camera_match as M
+import numpy as np
 
 class Contracts(unittest.TestCase):
     def test_public_tree(self):
@@ -36,6 +38,22 @@ class Contracts(unittest.TestCase):
         self.assertEqual(plan[1]["padFrames"], 2)
         self.assertAlmostEqual(plan[1]["outStart"], plan[0]["dur"], places=4)
 
+    def test_camera_match_by_sound(self):
+        rng = np.random.default_rng(3); sr = 48000
+        def speechy(seconds):
+            env, t = np.zeros(seconds * sr), 0.0
+            while t < seconds:
+                d = rng.uniform(.15, .6); env[int(t * sr):int((t + d) * sr)] = rng.uniform(.3, 1); t += d + rng.uniform(.05, .5)
+            return env * rng.standard_normal(len(env)) * .3
+        mic = speechy(30)
+        clip = np.concatenate([.01 * rng.standard_normal(int(1.37 * sr)), .6 * mic + .02 * rng.standard_normal(len(mic))])
+        envs = {"OTHER.MP4": M.envelope(speechy(40), sr), "RIGHT.MP4": M.envelope(clip, sr), "SHORT.MP4": M.envelope(clip[:8 * sr], sr)}
+        cam, found = M.best_clip(M.envelope(mic, sr), envs)
+        self.assertEqual(cam, "RIGHT.MP4")
+        self.assertAlmostEqual(found[0]["offset"], 1.37, delta=0.011)
+        self.assertNotIn("SHORT.MP4", [f["cam"] for f in found])        # covers too little of the take
+        self.assertIsNone(M.best_clip(M.envelope(mic, sr), {"OTHER.MP4": envs["OTHER.MP4"]})[0])
+
     def test_scaffold_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as d:
             p = create(Path(d) / "Sample")
@@ -57,7 +75,7 @@ class AppHTTP(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=5) as r: return r.status, dict(r.headers), r.read()
         except urllib.error.HTTPError as e: return e.code, dict(e.headers), e.read()
 
-    def start(self, app, project=None):
+    def start(self, app, project=None, args=()):
         self.temp = tempfile.TemporaryDirectory()
         self.folder = Path(self.temp.name)
         with socket.socket() as sock:
@@ -72,8 +90,8 @@ class AppHTTP(unittest.TestCase):
             self.plan_file = project / "edit/plan.json"
             self.plan_file.write_text(json.dumps(self.plan))
             (project / "edit/proxies/take01.mp4").write_bytes(b"0123456789")
-        args = [sys.executable, str(ROOT / app)] + ([str(project)] if project else []) + [str(port)]
-        self.proc = subprocess.Popen(args, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cmd = [sys.executable, str(ROOT / app)] + ([str(project)] if project else []) + [str(port), *args]
+        self.proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.url = f"http://127.0.0.1:{port}"
         for _ in range(100):
             try:
@@ -105,6 +123,19 @@ class AppHTTP(unittest.TestCase):
         status, _, body = self.request("/media/take01.mp4", headers={"Range":"bytes=-3"})
         self.assertEqual((status,body),(206,b"789"))
         self.assertEqual(self.request("/media/take01.mp4", headers={"Range":"bytes=99-"})[0], 416)
+
+    def test_home_lists_projects_and_guards_writes(self):
+        self.start("apps/home/home_server.py", args=["--no-browser"])
+        project = self.folder / "data/Projects/Sample"; (project / "takes").mkdir(parents=True)
+        status, _, body = self.request("/api/state")
+        self.assertEqual(status, 200)
+        self.assertEqual([p["name"] for p in json.loads(body)["projects"]], ["Sample"])
+        ok = {"X-Eyeline": "1"}
+        self.assertEqual(self.request("/api/prepare", {"project": str(project)})[0], 403)                      # no header
+        self.assertEqual(self.request("/api/prepare", {"project": str(project)}, dict(ok, Origin="https://example.invalid"))[0], 403)
+        self.assertEqual(self.request("/api/state", headers={"Host": "example.invalid"})[0], 403)
+        self.assertEqual(self.request("/api/prepare", {"project": str(self.folder)}, ok)[0], 404)                # not a listed project
+        self.assertEqual(self.request("/api/use-draft", {"project": str(project)}, ok)[0], 409)                  # no draft yet
 
     def test_teleprompter_project_and_static_boundary(self):
         self.start("apps/teleprompter/server.py")

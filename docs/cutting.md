@@ -4,7 +4,13 @@ The supplied assembler is experimental. It scores source readings and uses wavef
 
 ## Ingestion commands
 
-From `apps/eyeline-edit/`, replacing the project and source names:
+`prepare_project.py` does all of the ingestion below for every take in one go and skips work that is already done (`--redo` repeats it). Eyeline Home's **Prepare for editing** button runs it. From `apps/eyeline-edit/`:
+```bash
+uv run tools/prepare_project.py PROJECT
+```
+It looks for camera files in the project's `footage/` folder (and `../01-camera/` for a folder made by `tools/init_project.py`) and picks each take's clip by correlating loudness envelopes of the take's microphone audio and the clip's scratch audio. A take whose best clip matches below 0.5, or covers less than half of the take, is treated as audio-only and is only transcribed. The result is in `edit/camera-match.json`; a camera recording split across several files is not joined. Takes shorter than about 25 seconds are synced with the coarse offset only (about 10 ms, no drift correction); check their lip sync.
+
+The individual tools, from `apps/eyeline-edit/`, replacing the project and source names:
 ```bash
 uv run tools/ingest_words.py PROJECT "Take 01 · example"
 uv run tools/ingest_sync.py PROJECT "Take 01 · example" C0001.MP4 CAMERA_AUDIO_48K.wav

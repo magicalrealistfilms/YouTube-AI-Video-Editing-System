@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eyeline Home</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1f; --muted: #6e6e73; --line: #e3e1dc;
+  --accent: #2f6fde; --accent-ink: #ffffff; --ok: #1f8a4c; --warn: #b26a00; --bad: #c4372c; --soft: #eef3fd;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #141415; --panel: #1e1e20; --ink: #f2f2f3; --muted: #9a9aa0; --line: #2e2e31;
+          --accent: #5b8ff0; --accent-ink: #0b0b0c; --ok: #4cc27f; --warn: #e0a24a; --bad: #ef6b60; --soft: #1d2638; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 28px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+header h1 { font-size: 19px; margin: 0; letter-spacing: -.01em; }
+header h1 span { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 14px; }
+main { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: calc(100vh - 67px); }
+aside { border-right: 1px solid var(--line); padding: 18px 14px; }
+aside h2, section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px 6px; font-weight: 600; }
+.proj { display: block; width: 100%; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 10px 12px; border-radius: 10px; cursor: pointer; margin-bottom: 2px; }
+.proj:hover { background: var(--line); }
+.proj.on { background: var(--soft); }
+.proj b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj small { color: var(--muted); }
+.content { padding: 26px 32px 60px; max-width: 980px; }
+.title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.title h2 { font-size: 26px; margin: 0; text-transform: none; letter-spacing: -.02em; color: var(--ink); }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 14px; }
+.num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 13px; background: var(--line); color: var(--muted); }
+.num.done { background: var(--ok); color: #fff; }
+.step h3 { margin: 3px 0 2px; font-size: 16px; }
+.step p { margin: 0 0 10px; color: var(--muted); }
+.step .body { grid-column: 2; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+button.b { font: inherit; font-weight: 500; border-radius: 9px; padding: 8px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+button.b:hover:not(:disabled) { border-color: var(--muted); }
+button.b.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.b:disabled { opacity: .45; cursor: default; }
+button.link { border: 0; background: none; color: var(--accent); font: inherit; padding: 0; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+.y { color: var(--ok); } .n { color: var(--muted); } .w { color: var(--warn); } .x { color: var(--bad); }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 10px 0 6px; }
+.bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; max-height: 240px; overflow: auto; font-size: 12px; white-space: pre-wrap; margin: 8px 0 0; }
+.note { font-size: 13px; color: var(--muted); }
+.msg { padding: 10px 12px; border-radius: 9px; background: var(--soft); margin: 8px 0; font-size: 14px; }
+.msg.err { background: color-mix(in srgb, var(--bad) 14%, transparent); }
+ol.after { margin: 4px 0 0; padding-left: 20px; color: var(--muted); }
+ol.after li { margin: 3px 0; }
+ol.after b { color: var(--ink); font-weight: 600; }
+.empty { color: var(--muted); padding: 40px 0; }
+code { font-size: 13px; }
+.note code { word-break: break-all; }
+.tablewrap { overflow-x: auto; }
+td:first-child, td:nth-child(2) { white-space: nowrap; }
+@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } aside { border-right: 0; border-bottom: 1px solid var(--line); } .content { padding: 20px 16px; } header { padding: 14px 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Eyeline <span>Home</span></h1>
+  <button class="b primary" id="tele">Open teleprompter</button>
+</header>
+<main>
+  <aside><h2>Projects</h2><div id="list"></div><p class="note" id="dataNote" style="margin:14px 6px"></p></aside>
+  <div class="content" id="view"><p class="empty">Loading…</p></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let state = null, job = null, selected = null, notice = null, logOpen = false;
+try { selected = localStorage.getItem("eyeline-home-project"); } catch (e) {}
+
+async function post(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-Eyeline": "1" }, body: JSON.stringify(body || {}) });
+  let data = {}; try { data = await r.json(); } catch (e) {}
+  return { ok: r.ok, status: r.status, data };
+}
+const fmtDur = s => s == null ? "" : s >= 60 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : `${Math.round(s)} s`;
+const mark = (v, warn) => v ? `<span class="${warn ? "w" : "y"}">${warn ? "✓ check" : "✓"}</span>` : `<span class="n">–</span>`;
+
+async function refresh() {
+  try {
+    state = await (await fetch("/api/state")).json();
+    job = await (await fetch("/api/job")).json();
+  } catch (e) { $("#view").innerHTML = `<p class="msg err">Eyeline Home is not running. Start it again with Eyeline.command.</p>`; return; }
+  if (!state.projects.find(p => p.path === selected)) selected = state.projects[0]?.path || null;
+  render();
+}
+
+function status(p) {
+  const cam = p.takes.filter(t => t.camera);
+  if (!p.takes.length) return "No takes yet";
+  if (p.planClips) return `In the editor · ${p.planClips} clips`;
+  if (cam.length && cam.every(t => t.transcribed && t.preview)) return "Ready for a draft cut";
+  if (!p.cameraFiles.length) return `${p.takes.length} takes · add camera files`;
+  return `${p.takes.length} takes · prepare for editing`;
+}
+
+function render() {
+  $("#dataNote").innerHTML = `New projects are made in the teleprompter and saved in<br><code>${esc(state.dataFolder)}</code>`;
+  $("#list").innerHTML = state.projects.length ? state.projects.map(p =>
+    `<button class="proj ${p.path === selected ? "on" : ""}" data-path="${esc(p.path)}"><b>${esc(p.name)}</b><small>${esc(status(p))}</small></button>`).join("")
+    : `<p class="note" style="margin:0 6px">No projects yet.</p>`;
+  document.querySelectorAll(".proj").forEach(b => b.onclick = () => { selected = b.dataset.path; notice = null; try { localStorage.setItem("eyeline-home-project", selected); } catch (e) {} render(); });
+  const p = state.projects.find(x => x.path === selected);
+  if (!p) { $("#view").innerHTML = `<p class="empty">Open the teleprompter, create a project and record your first take. It will appear here.</p>`; return; }
+
+  const takes = p.takes, cam = takes.filter(t => t.camera);
+  const busy = job && job.running, mine = job && job.project === p.path;
+  const prepared = cam.length > 0 && cam.every(t => t.transcribed && t.synced && t.preview);
+  const matchedNone = takes.length && takes.every(t => t.matched) && !cam.length;
+  const prog = mine && job.progress ? job.progress : null;
+  const pct = prog ? Math.round(100 * prog.done / Math.max(1, prog.total)) : 0;
+  const jobBox = (kind) => mine && job.kind === kind && (busy || job.finished) ? `
+      ${busy ? `<div class="bar"><i style="width:${pct}%"></i></div><div class="note">${esc(prog ? prog.step : "Starting…")}</div>` : ""}
+      ${!busy && job.error ? `<div class="msg err">${esc(job.error)}</div>` : ""}
+      ${!busy && !job.error ? `<div class="msg">Finished.</div>` : ""}
+      <details ${logOpen ? "open" : ""}><summary class="note">Details</summary><pre>${esc(job.log || "…")}</pre></details>` : "";
+
+  $("#view").innerHTML = `
+  <div class="title"><h2>${esc(p.name)}</h2><button class="link" data-act="reveal">Show in Finder</button></div>
+  ${notice ? `<div class="msg ${notice.err ? "err" : ""}">${esc(notice.text)}</div>` : ""}
+
+  <div class="step"><div class="num ${takes.length ? "done" : ""}">1</div><div class="body">
+    <h3>Record</h3>
+    <p>${takes.length ? `${takes.length} take${takes.length > 1 ? "s" : ""} recorded.` : "No takes yet."} Record your voice in the teleprompter while the camera runs at 25p with its microphone on.</p>
+    <div class="row"><button class="b" data-act="tele">Open teleprompter</button></div>
+  </div></div>
+
+  <div class="step"><div class="num ${p.cameraFiles.length ? "done" : ""}">2</div><div class="body">
+    <h3>Add camera files</h3>
+    <p>${p.cameraFiles.length ? `${p.cameraFiles.length} camera file${p.cameraFiles.length > 1 ? "s" : ""}: ${esc(p.cameraFiles.slice(0, 6).join(", "))}${p.cameraFiles.length > 6 ? "…" : ""}.` : "No camera files yet."}
+      Copy the clips from your camera card into the project's camera folder. Which clip belongs to which take is worked out from the sound.</p>
+    <div class="row"><button class="b" data-act="camera">Open camera folder</button></div>
+  </div></div>
+
+  <div class="step"><div class="num ${prepared ? "done" : ""}">3</div><div class="body">
+    <h3>Prepare for editing</h3>
+    <p>Matches each take to its camera clip, transcribes it, syncs picture to sound and builds previews. The first run downloads the speech model (about 1.5 GB).</p>
+    ${takes.length ? `<div class="tablewrap"><table><tr><th>Take</th><th>Length</th><th>Camera clip</th><th>Transcript</th><th>Sync</th><th>Preview</th></tr>
+      ${takes.map(t => `<tr><td>${esc(t.key.replace("take", "Take "))}</td><td>${fmtDur(t.duration)}</td>
+        <td>${t.camera ? esc(t.camera) : t.matched ? `<span class="n">none (audio only)</span>` : `<span class="n">–</span>`}</td>
+        <td>${mark(t.transcribed)}</td><td>${t.camera ? mark(t.synced, t.coarseSync) : ""}</td><td>${t.camera ? mark(t.preview) : ""}</td></tr>
+        ${t.errors.length ? `<tr><td></td><td colspan="5" class="x note">${esc(t.errors.join(" · "))}</td></tr>` : ""}`).join("")}</table></div>
+      ${takes.some(t => t.coarseSync) ? `<p class="note">“✓ check”: the take was too short for fine sync. Check lip sync in the editor.</p>` : ""}
+      ${matchedNone ? `<div class="msg err">No take matched a camera file. Check that the camera recorded sound and that the files are the right ones.</div>` : ""}` : ""}
+    <div class="row">
+      <button class="b ${prepared ? "" : "primary"}" data-act="prepare" ${busy || !takes.length || !p.cameraFiles.length ? "disabled" : ""}>${prepared ? "Prepare again (new takes only)" : "Prepare for editing"}</button>
+      ${prepared ? `<button class="link" data-act="redo" ${busy ? "disabled" : ""}>Redo everything</button>` : ""}
+    </div>
+    ${jobBox("prepare")}
+  </div></div>
+
+  <div class="step"><div class="num ${p.planClips ? "done" : ""}">4</div><div class="body">
+    <h3>Draft cut <span class="note">(experimental)</span></h3>
+    <p>Picks the best reading of each script line across the prepared takes. It is a starting point to review, never a finished cut.</p>
+    ${!p.hasScriptMap ? `<p class="note">Needs the script map the teleprompter saves with each project (edit-plan.json).</p>` : ""}
+    <div class="row">
+      <button class="b ${prepared && !p.draft && !p.planClips ? "primary" : ""}" data-act="draft" ${busy || !prepared || !p.hasScriptMap ? "disabled" : ""}>Make draft cut</button>
+      ${p.draft ? `<button class="b primary" data-act="use">Use draft in editor (${p.draftClips} clips)</button>` : ""}
+    </div>
+    ${jobBox("draft")}
+  </div></div>
+
+  <div class="step"><div class="num">5</div><div class="body">
+    <h3>Edit</h3>
+    <p>${p.planClips ? `The cut has ${p.planClips} clips.` : "Load a draft cut first, or ask your editing agent for one."} Review every join, adjust edges, then export the video and its WAV from the editor.</p>
+    <div class="row"><button class="b ${p.planClips ? "primary" : ""}" data-act="edit" ${prepared || p.planClips ? "" : "disabled"}>Open in editor</button></div>
+  </div></div>
+
+  <div class="step"><div class="num">→</div><div class="body">
+    <h3>After the cut</h3>
+    <ol class="after">
+      <li><b>Approve and export</b> in the editor: the final video, its WAV and the transcript.</li>
+      <li><b>Design</b> the boards from the approved transcript (Claude Design or your HTML tool).</li>
+      <li><b>Animate</b> the boards to the narration and render them (<code>tools/render_boards.py</code>).</li>
+      <li><b>Finish</b> in Resolve or Premiere: picture, approved WAV, board track, captions. Then publish.</li>
+    </ol>
+  </div></div>`;
+
+  document.querySelectorAll("[data-act]").forEach(b => b.onclick = () => act(b.dataset.act, p, b));
+  document.querySelectorAll("details").forEach(d => d.ontoggle = () => { logOpen = d.open; });
+  document.querySelectorAll("pre").forEach(x => { x.scrollTop = x.scrollHeight; });
+}
+
+async function act(what, p, btn) {
+  notice = null;
+  if (what === "tele") return tele(btn);
+  btn.disabled = true;
+  const say = (r, ok) => { notice = r.ok ? (ok ? { text: ok } : null) : { text: r.data.error || `Something went wrong (${r.status}).`, err: true }; };
+  if (what === "reveal" || what === "camera") say(await post("/api/reveal", { project: p.path, what: what === "camera" ? "camera" : "project" }));
+  if (what === "prepare" || what === "redo") say(await post("/api/prepare", { project: p.path, redo: what === "redo" }));
+  if (what === "draft") say(await post("/api/draft", { project: p.path }));
+  if (what === "edit") { btn.textContent = "Opening…"; say(await post("/api/editor", { project: p.path })); }
+  if (what === "use") {
+    let r = await post("/api/use-draft", { project: p.path });
+    if (r.status === 409 && r.data.error === "confirm") {
+      if (!confirm("Replace the cut in the editor with this draft?\n\nThe current cut is kept in the project's edit/history folder.")) { btn.disabled = false; return; }
+      r = await post("/api/use-draft", { project: p.path, replace: true });
+    }
+    say(r, r.ok ? `Draft loaded: ${r.data.clips} clips. Open it in the editor to review.` : null);
+  }
+  await refresh();
+}
+
+async function tele(btn) {
+  btn.disabled = true; const label = btn.textContent; btn.textContent = "Opening…";
+  const r = await post("/api/teleprompter");
+  btn.disabled = false; btn.textContent = label;
+  if (!r.ok) { notice = { text: r.data.error || "The teleprompter did not start.", err: true }; render(); }
+}
+$("#tele").onclick = () => tele($("#tele"));
+
+async function loop() { if (!document.hidden) await refresh(); setTimeout(loop, job && job.running ? 1000 : 4000); }
+loop();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>

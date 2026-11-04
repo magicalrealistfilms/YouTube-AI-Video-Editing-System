@@ -61,15 +61,27 @@ for t in np.arange(5, len(mic) / R - 15, 20):
     cc = cc / (loc * len(a) + 1e-9); k = int(np.argmax(cc))
     d = 0.5 * (cc[k - 1] - cc[k + 1]) / (cc[k - 1] - 2 * cc[k] + cc[k + 1]) if 0 < k < len(cc) - 1 else 0
     pts.append((t + 5, (j0 + k + d - i0) / 1000, float(cc[k])))
-pts = np.array(pts)
+pts = np.array(pts).reshape(-1, 3)
 good = pts[pts[:, 2] > 0.5]
 for _ in range(4):
+    if len(good) < 2:
+        break
     a_, b_ = np.polyfit(good[:, 0], good[:, 1], 1)
-    res = good[:, 1] - (a_ * good[:, 0] + b_); good = good[np.abs(res) < max(0.004, 3 * np.std(res))]
-a_, b_ = np.polyfit(good[:, 0], good[:, 1], 1)
-res_ms = np.abs(good[:, 1] - (a_ * good[:, 0] + b_)) * 1000
-print(f"fine: {len(good)}/{len(pts)} windows, offset {b_:+.4f} s, drift {a_ * 3600 * 1000:+.1f} ms/hour, "
-      f"residual max {res_ms.max():.1f} ms, median {np.median(res_ms):.2f} ms")
+    res = good[:, 1] - (a_ * good[:, 0] + b_)
+    keep = good[np.abs(res) < max(0.004, 3 * np.std(res))]
+    if len(keep) < 2:
+        break
+    good = keep
+if len(good) >= 2:
+    a_, b_ = np.polyfit(good[:, 0], good[:, 1], 1)
+    res_ms = np.abs(good[:, 1] - (a_ * good[:, 0] + b_)) * 1000
+    print(f"fine: {len(good)}/{len(pts)} windows, offset {b_:+.4f} s, drift {a_ * 3600 * 1000:+.1f} ms/hour, "
+          f"residual max {res_ms.max():.1f} ms, median {np.median(res_ms):.2f} ms")
+else:   # take too short (under about 25 s) or too quiet for the windowed fit: keep the coarse offset, no drift
+    a_, b_ = 0.0, coarse
+    res_ms = np.array([0.0])
+    print(f"fine: not enough clear windows ({len(good)}/{len(pts)}); using the coarse offset {b_:+.2f} s (about 10 ms). "
+          "Check lip sync in the editor.")
 
 # 3. check against the chirps Eyeline logged (2 kHz tone through the Mac speaker)
 tj = P.read_json(take_path / "take.json", {})
@@ -94,7 +106,7 @@ print("chirps:", chk)
 out = {"cam": cam_name,
        "offset": {"a": a_, "b": b_, "meaning": "camera time = take time + a*t + b"},
        "maps": [],
-       "check": {"windows": len(good), "residualMaxMs": round(float(res_ms.max()), 2), "chirps": chk,
+       "check": {"windows": len(good), "coarseOnly": len(good) < 2, "residualMaxMs": round(float(res_ms.max()), 2), "chirps": chk,
                  "method": "1 kHz log-envelope cross-correlation, 10 s windows every 20 s, linear fit; chirp onsets as a check"},
        "createdBy": "tools/ingest_sync.py", "created": P.now_iso()}
 (proj / "edit" / "sync").mkdir(parents=True, exist_ok=True)
