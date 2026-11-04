@@ -160,6 +160,8 @@ class AppHTTP(unittest.TestCase):
         self.assertEqual((saved["fps"], saved["duration"], saved["scenes"][0]["file"]), ("25", 4.0, "../boards/01-process.html"))
         prompt = json.loads(self.request("/api/prompt?kind=brief&project=" + urllib.parse.quote(str(project)))[2])["text"]
         self.assertIn("[   0.10 –    0.90] Hello world.", prompt)
+        self.assertIn("0.10 Hello 0.50 world.", prompt)                       # exact word timings
+        self.assertIn("Do not write TIMING PENDING", prompt)
         preview = self.url.rsplit(":", 1)[0] + ":" + str(int(self.url.rsplit(":", 1)[1]) + 1)
         with urllib.request.urlopen(f"{preview}/p/{info['pid']}/01-process.html", timeout=5) as r:
             self.assertEqual(r.status, 200)
