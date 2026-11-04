@@ -165,8 +165,9 @@ function render() {
     ${!p.hasScriptMap ? `<p class="note">Needs the script map the teleprompter saves with each project (edit-plan.json).</p>` : ""}
     <div class="row">
       <button class="b ${prepared && !p.draft && !p.planClips ? "primary" : ""}" data-act="draft" ${busy || !prepared || !p.hasScriptMap ? "disabled" : ""}>Make draft cut</button>
-      ${p.draft ? `<button class="b primary" data-act="use">Use draft in editor (${p.draftClips} clips)</button>` : ""}
+      ${p.draft && p.draftClips ? `<button class="b primary" data-act="use">Use draft in editor (${p.draftClips} clips)</button>` : ""}
     </div>
+    ${p.draft && !p.draftClips && !(busy && mine) ? `<div class="msg err">The draft found no reading of the script in the prepared takes. Check that the takes are transcribed and that you read the script's lines, then make the draft again.</div>` : ""}
     ${jobBox("draft")}
   </div></div>
 

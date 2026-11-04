@@ -65,7 +65,7 @@ class Take:
             a, b, w, p = line.split("\t")
             for t in norm(w) or [w.lower()]:
                 self.words.append({"s": float(a), "e": float(b), "w": w, "n": t, "p": float(p), "r": r})
-        self.sent = {s["id"]: s["text"] for s in self.tj["sentences"]}
+        self.sent = {s["id"]: s["text"] for s in self.tj.get("sentences", [])}
 
     def loud(self, i):          # sound at 1 ms index i?
         return self.eb[i] > self.fb + 9 or self.eh[i] > self.fh + 9
@@ -114,17 +114,45 @@ def align(tk, script_toks, a0, a1):
     return best
 
 
+def search(tk, toks):
+    """Every reading of this sentence anywhere in the take's transcript, best first and not overlapping.
+    Used when the teleprompter logged no attempt for the line in this take (voice following lost the place,
+    or the script was edited after recording)."""
+    W, n, heads = tk.words, len(toks), set(toks[:3])
+    found = []
+    for j, w in enumerate(W):
+        if w["n"] not in heads:
+            continue
+        seg = [k for k in range(j, min(len(W), j + int(n * 2.2) + 15)) if W[k]["n"] not in FILLERS]
+        sm = SequenceMatcher(None, toks, [W[k]["n"] for k in seg], autojunk=False)
+        pairs = [(b.a + q, seg[b.b + q]) for b in sm.get_matching_blocks() for q in range(b.size)]
+        if len(pairs) < max(2, 0.3 * n):
+            continue
+        m = len(pairs); first, last = pairs[0][1], pairs[-1][1]
+        found.append((m - 0.12 * (last - first + 1 - m), m, first, last, pairs))
+    out = []
+    for r in sorted(found, key=lambda r: -r[0]):
+        if all(r[3] < o[2] or r[2] > o[3] for o in out):
+            out.append(r)
+    return out
+
+
 cands = {}
 for L in plan_lines:
     toks = norm(L["text"])
     out = []
     for tk in takes.values():
-        for n, a in enumerate(tk.tj["attempts"]):
+        found = []
+        for n, a in enumerate(tk.tj.get("attempts", [])):
             if norm(tk.sent.get(a["sentence"], "")) != toks:
                 continue
             r = align(tk, toks, a["start"], a["end"])
-            if not r:
-                continue
+            if r:
+                found.append((n, a, r))
+        if not found:
+            found = [(None, {"start": tk.words[r[2]]["s"], "end": tk.words[r[3]]["e"], "flags": ["transcript search"]}, r)
+                     for r in search(tk, toks)]
+        for n, a, r in found:
             _, m, first, last, pairs = r
             matched = {k for _, k in pairs}
             span = list(range(first, last + 1))
@@ -373,6 +401,8 @@ for L in plan_lines:
         cl["picks"] = [L["line"]]
         if best["recall"] < 0.6:
             cl["reviewNote"] = f"loose reading of the script line ({best['recall']:.0%} of its words), the only usable one"
+        if "transcript search" in best["flags"]:
+            cl["reviewNote"] = "; ".join(filter(None, [cl.get("reviewNote"), "found in the transcript (the teleprompter logged no attempt here); check it is the reading you want"]))
         cl["reason"] = (f"best of {len(ok)} readings (score {best['score']:.0f}"
                         + (f", next {ok[1]['score']:.0f} in {ok[1]['take']}" if len(ok) > 1 else "") + ")")
         plan.append(cl)
